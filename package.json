@@ -1,6 +1,6 @@
 {
   "name": "live-server-extension",
-  "displayName": "Live Server",
+  "displayName": "Live Server like Github Pages",
   "description": "Launch a development local Server with live reload feature for static & dynamic pages",
   "version": "1.0.0",
   "publisher": "rasyid-kurniawan",

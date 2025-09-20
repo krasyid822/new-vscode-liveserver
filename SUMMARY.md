@@ -64,7 +64,7 @@ Press `Ctrl+Shift+P` and test:
    - Add icon file (optional)
 
 2. **Create Azure DevOps Account**:
-   - Visit: https://dev.azure.com
+   - Visit: https://dev.azure.com (salah, yg benar adalah untuk vscode)
    - Create Personal Access Token
    - Scope: "Marketplace (publish)"
 
