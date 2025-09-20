@@ -23,12 +23,12 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/krasyid822/live-server-extension.git"
+    "url": "https://github.com/krasyid822/new-vscode-liveserver.git"
   },
   "bugs": {
-    "url": "https://github.com/krasyid822/live-server-extension/issues"
+    "url": "https://github.com/krasyid822/new-vscode-liveserver/issues"
   },
-  "homepage": "https://github.com/krasyid822/live-server-extension#readme",
+  "homepage": "https://github.com/krasyid822/new-vscode-liveserver#readme",
   "license": "MIT",
   "activationEvents": [
     "onStartupFinished"
