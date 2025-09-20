@@ -2,7 +2,8 @@
   "name": "live-server-extension",
   "displayName": "Live Server like Github Pages",
   "description": "Launch a development local Server with live reload feature for static & dynamic pages",
-  "version": "1.0.0",
+  "version": "1.0.1",
+  "icon": "icon.png",
   "publisher": "rasyid-kurniawan",
   "engines": {
     "vscode": "^1.74.0"
