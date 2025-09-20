@@ -23,12 +23,12 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/yourusername/live-server-extension.git"
+    "url": "https://github.com/krasyid822/live-server-extension.git"
   },
   "bugs": {
-    "url": "https://github.com/yourusername/live-server-extension/issues"
+    "url": "https://github.com/krasyid822/live-server-extension/issues"
   },
-  "homepage": "https://github.com/yourusername/live-server-extension#readme",
+  "homepage": "https://github.com/krasyid822/live-server-extension#readme",
   "license": "MIT",
   "activationEvents": [
     "onStartupFinished"
