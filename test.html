@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Server Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            min-height: 100vh;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 40px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            text-align: center;
+        }
+        h1 {
+            font-size: 2.5em;
+            margin-bottom: 20px;
+        }
+        p {
+            font-size: 1.2em;
+            line-height: 1.6;
+        }
+        .feature {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Live Server Extension</h1>
+        <p>Welcome to the Live Server VS Code Extension test page!</p>
+        
+        <div class="feature">
+            <h2>✨ Live Reload</h2>
+            <p>This page will automatically reload when you save changes to any file.</p>
+        </div>
+        
+        <div class="feature">
+            <h2>⚡ Fast Development</h2>
+            <p>Perfect for rapid web development and testing.</p>
+        </div>
+        
+        <div class="feature">
+            <h2>🔧 Easy to Use</h2>
+            <p>Right-click on HTML files or use the command palette to start the server.</p>
+        </div>
+        
+        <p><strong>Try editing this file and save it to see the live reload in action!</strong></p>
+    </div>
+
+    <script>
+        console.log('Live Server test page loaded!');
+        
+        // Add some interactivity
+        document.addEventListener('DOMContentLoaded', function() {
+            const features = document.querySelectorAll('.feature');
+            features.forEach((feature, index) => {
+                feature.style.animationDelay = `${index * 0.2}s`;
+                feature.style.animation = 'fadeInUp 0.6s ease forwards';
+            });
+        });
+    </script>
+
+    <style>
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+</body>
+</html>

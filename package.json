@@ -1,0 +1,115 @@
+{
+  "name": "live-server-extension",
+  "displayName": "Live Server",
+  "description": "Launch a development local Server with live reload feature for static & dynamic pages",
+  "version": "1.0.0",
+  "publisher": "rasyid-kurniawan",
+  "engines": {
+    "vscode": "^1.74.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "live server",
+    "development server",
+    "live reload",
+    "local server",
+    "preview",
+    "go live",
+    "web development",
+    "html",
+    "static server"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/live-server-extension.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yourusername/live-server-extension/issues"
+  },
+  "homepage": "https://github.com/yourusername/live-server-extension#readme",
+  "license": "MIT",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "extension.liveServer.toggle",
+        "title": "Toggle Live Server",
+        "category": "Live Server"
+      },
+      {
+        "command": "extension.liveServer.start",
+        "title": "Open with Live Server",
+        "category": "Live Server"
+      },
+      {
+        "command": "extension.liveServer.stop",
+        "title": "Stop Live Server",
+        "category": "Live Server"
+      }
+    ],
+    "menus": {
+      "explorer/context": [
+        {
+          "command": "extension.liveServer.start",
+          "when": "resourceExtname == .html",
+          "group": "navigation"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "extension.liveServer.toggle",
+          "title": "Live Server: Toggle Live Server"
+        },
+        {
+          "command": "extension.liveServer.start",
+          "title": "Live Server: Open with Live Server"
+        },
+        {
+          "command": "extension.liveServer.stop",
+          "title": "Live Server: Stop Live Server"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Live Server",
+      "properties": {
+        "liveServer.port": {
+          "type": "number",
+          "default": 5500,
+          "description": "Port number for the live server"
+        },
+        "liveServer.host": {
+          "type": "string",
+          "default": "127.0.0.1",
+          "description": "Host for the live server"
+        },
+        "liveServer.root": {
+          "type": "string",
+          "default": "/",
+          "description": "Root path for the live server"
+        },
+        "liveServer.open": {
+          "type": "string",
+          "default": "/",
+          "description": "Path to open in browser"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/node": "16.x",
+    "@types/vscode": "^1.74.0",
+    "live-server": "^1.2.2",
+    "typescript": "^4.9.4"
+  }
+}
