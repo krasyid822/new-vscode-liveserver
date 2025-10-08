@@ -5,6 +5,17 @@ All notable changes to the "Live Server" extension will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.2] - 2025-10-08
+
+### Added
+- PHP support: Automatic detection of PHP projects and use of PHP built-in server
+- Auto-detection: Extension now detects project type (PHP or static) automatically
+- Improved status messages: Status bar and notifications now reflect server type
+- XAMPP integration: Option to use PHP from XAMPP installation
+- XAMPP Apache support: Option to use Apache from XAMPP with confirmation dialog
+- Apache status check: Automatically checks if Apache is running before proceeding
+- Auto-start Apache: Attempts to start Apache service automatically when needed
+
 ## [1.0.1]
 - Fix project URL
 

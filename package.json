@@ -2,7 +2,7 @@
   "name": "live-server-extension",
   "displayName": "Live Server like Github Pages",
   "description": "Launch a development local Server with live reload feature for static & dynamic pages",
-  "version": "1.0.1",
+  "version": "1.0.28",
   "icon": "icon.png",
   "publisher": "rasyid-kurniawan",
   "engines": {
@@ -79,25 +79,25 @@
     "configuration": {
       "title": "Live Server",
       "properties": {
-        "liveServer.port": {
-          "type": "number",
-          "default": 5500,
-          "description": "Port number for the live server"
+        "liveServer.useXampp": {
+          "type": "boolean",
+          "default": false,
+          "description": "Use XAMPP PHP server instead of built-in servers"
         },
-        "liveServer.host": {
+        "liveServer.xamppPath": {
           "type": "string",
-          "default": "127.0.0.1",
-          "description": "Host for the live server"
+          "default": "C:\\xampp",
+          "description": "Path to XAMPP installation directory"
         },
-        "liveServer.root": {
-          "type": "string",
-          "default": "/",
-          "description": "Root path for the live server"
+        "liveServer.useXamppApache": {
+          "type": "boolean",
+          "default": false,
+          "description": "Use XAMPP Apache server (requires Apache to be running in XAMPP Control Panel)"
         },
-        "liveServer.open": {
-          "type": "string",
-          "default": "/",
-          "description": "Path to open in browser"
+        "liveServer.autoCopyToHtdocs": {
+          "type": "boolean",
+          "default": false,
+          "description": "Automatically prompt to copy/move project to XAMPP htdocs folder when using Apache"
         }
       }
     }

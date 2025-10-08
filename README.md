@@ -1,6 +1,6 @@
 # Live Server VS Code Extension
 
-Ekstensi VS Code yang menyediakan toggle "Go Live" di status bar untuk menjalankan live server lokal dengan mudah. Ini menggantikan Live Server tradisional yang memiliki sistem path yang berbeda dengan Github Pages misalnya, yang mana itu memicu error 404 disalah satunya.
+Ekstensi VS Code yang menyediakan toggle "Go Live" di status bar untuk menjalankan live server lokal dengan mudah. Mendukung static files dan PHP projects secara otomatis.
 
 ## Features
 
@@ -8,7 +8,10 @@ Ekstensi VS Code yang menyediakan toggle "Go Live" di status bar untuk menjalank
 - 🔄 **One-Click Start/Stop**: Klik sekali untuk start, klik lagi untuk stop
 - 🌐 **Auto Browser Open**: Otomatis membuka browser dengan alamat server
 - 📊 **Status Indicator**: Status bar menampilkan informasi server
-- ⚡ **Live Reload**: Menggunakan npx live-server dengan fitur live reload
+- ⚡ **Live Reload**: Menggunakan npx live-server untuk static files
+- 🐘 **PHP Support**: Otomatis mendeteksi dan menjalankan PHP built-in server untuk projects dengan file PHP
+- 🔍 **Auto Detection**: Mendeteksi tipe project (PHP atau static) secara otomatis
+- 🏠 **XAMPP Integration**: Dukungan untuk menggunakan PHP dari XAMPP
 
 ## Installation
 
@@ -17,13 +20,36 @@ Ekstensi VS Code yang menyediakan toggle "Go Live" di status bar untuk menjalank
 3. Search for "Live Server"
 4. Click Install
 
+## Configuration
+
+Ekstensi ini dapat dikonfigurasi melalui VS Code Settings:
+
+### XAMPP Integration
+
+Jika Anda ingin menggunakan PHP atau Apache dari XAMPP:
+
+1. Buka VS Code Settings (Ctrl+,)
+2. Cari "Live Server"
+3. **Untuk PHP**: Set "Use Xampp" ke `true`
+4. **Untuk Apache**: Set "Use Xampp Apache" ke `true` (pastikan Apache running di XAMPP Control Panel)
+5. Set "Xampp Path" ke path instalasi XAMPP Anda (default: `C:\xampp`)
+
+Ketika "Use Xampp Apache" diaktifkan, ekstensi akan:
+- Memeriksa apakah Apache sedang berjalan
+- Jika tidak, menawarkan opsi untuk memulai Apache secara otomatis, membuka XAMPP Control Panel, atau membatalkan
+- Mencoba memulai Apache menggunakan Windows service jika memungkinkan
+
 ## Usage
+
+Ekstensi ini secara otomatis mendeteksi tipe project:
+- **PHP Projects**: Jika ada file `.php` di workspace, akan menggunakan PHP built-in server (`php -S localhost:8000`)
+- **Static Projects**: Jika tidak ada file PHP, akan menggunakan live-server dengan live reload
 
 ### Using Status Bar Toggle
 
 1. **Start Server**: 
    - Klik tombol "○ Go Live" di status bar (pojok kanan bawah)
-   - Server akan start dan browser otomatis terbuka
+   - Server akan start sesuai tipe project dan browser otomatis terbuka
    - Status bar berubah menjadi "📡 Go Live" dengan alamat server
 
 2. **Stop Server**:
