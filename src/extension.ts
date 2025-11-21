@@ -3,6 +3,7 @@ import { exec, ChildProcess } from 'child_process';
 import * as net from 'net';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as os from 'os';
 
 let liveServerProcess: ChildProcess | undefined;
 let statusBarItem: vscode.StatusBarItem;
@@ -15,6 +16,8 @@ let useXamppApache = false;
 let autoCopyToHtdocs = false;
 let copiedToHtdocs = false;
 let htdocsProjectPath = '';
+let enableLanAccess = false;
+let localIpAddress = '';
 
 export function activate(context: vscode.ExtensionContext) {
     console.log('Live Server extension is now active!');
@@ -50,17 +53,43 @@ export function activate(context: vscode.ExtensionContext) {
         }
     });
 
-    context.subscriptions.push(toggleCommand, startCommand, stopCommand, statusBarItem);
+    const settingsCommand = vscode.commands.registerCommand('extension.liveServer.settings', () => {
+        vscode.commands.executeCommand('workbench.action.openSettings', 'liveServer');
+    });
+
+    context.subscriptions.push(toggleCommand, startCommand, stopCommand, settingsCommand, statusBarItem);
 
     // Detect project type (e.g., PHP)
     detectProjectType();
+}
+
+function getLocalIpAddress(): string {
+    const interfaces = os.networkInterfaces();
+    for (const name of Object.keys(interfaces)) {
+        const iface = interfaces[name];
+        if (!iface) continue;
+        
+        for (const alias of iface) {
+            // Skip internal (loopback) and non-IPv4 addresses
+            if (alias.family === 'IPv4' && !alias.internal) {
+                return alias.address;
+            }
+        }
+    }
+    return 'localhost';
 }
 
 function updateStatusBar() {
     const serverType = useXamppApache ? 'XAMPP Apache Server' : (useXampp && isPhpProject ? 'XAMPP PHP Server' : (isPhpProject ? 'PHP Server' : 'Live Server'));
     if (isServerRunning) {
         statusBarItem.text = "$(broadcast) Go Live";
-        statusBarItem.tooltip = `${serverType} running at ${serverUrl}. Click to stop.`;
+        let tooltipText = `${serverType} running at ${serverUrl}`;
+        if (enableLanAccess && localIpAddress && localIpAddress !== 'localhost') {
+            const lanUrl = serverUrl.replace('localhost', localIpAddress).replace('127.0.0.1', localIpAddress);
+            tooltipText += `\nLAN: ${lanUrl}`;
+        }
+        tooltipText += '. Click to stop.';
+        statusBarItem.tooltip = tooltipText;
         statusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground');
     } else {
         statusBarItem.text = "$(circle-large-outline) Go Live";
@@ -161,10 +190,12 @@ async function startLiveServer() {
         command = `"${xamppPath}\\php\\php.exe" -S localhost:8000 -t "${workspacePath}"`;
     } else if (isPhpProject) {
         // Use system PHP with -t flag to set document root
-        command = `php -S localhost:8000 -t "${workspacePath}"`;
+        const host = enableLanAccess ? '0.0.0.0' : 'localhost';
+        command = `php -S ${host}:8000 -t "${workspacePath}"`;
     } else {
         // Use live-server for static files
-        command = 'npx live-server --open=./';
+        const host = enableLanAccess ? '0.0.0.0' : '127.0.0.1';
+        command = `npx live-server --host=${host} --open=./`;
     }
     
     const serverType = useXamppApache ? 'XAMPP Apache Server' : (useXampp && isPhpProject ? 'XAMPP PHP Server' : (isPhpProject ? 'PHP Server' : 'Live Server'));
@@ -194,7 +225,8 @@ async function startLiveServer() {
         if (isPhpProject) {
             // For PHP server, set URL immediately and wait a bit for server to start
             setTimeout(() => {
-                serverUrl = 'http://localhost:8000';
+                const host = enableLanAccess && localIpAddress ? localIpAddress : 'localhost';
+                serverUrl = `http://${host}:8000`;
                 // Add relative path for PHP server
                 if (relativePath) {
                     serverUrl += relativePath;
@@ -308,6 +340,13 @@ function detectProjectType(): void {
     xamppPath = config.get('xamppPath', 'C:\\xampp');
     useXamppApache = config.get('useXamppApache', false);
     autoCopyToHtdocs = config.get('autoCopyToHtdocs', false);
+    enableLanAccess = config.get('enableLanAccess', false);
+    
+    // Get local IP address if LAN access is enabled
+    if (enableLanAccess) {
+        localIpAddress = getLocalIpAddress();
+        console.log('Local IP Address:', localIpAddress);
+    }
 }
 
 async function checkApacheStatus(): Promise<boolean> {

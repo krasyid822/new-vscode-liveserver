@@ -2,7 +2,7 @@
   "name": "live-server-extension",
   "displayName": "Live Server like Github Pages",
   "description": "Launch a development local Server with live reload feature for static & dynamic pages",
-  "version": "1.0.28",
+  "version": "1.0.29",
   "icon": "icon.png",
   "publisher": "rasyid-kurniawan",
   "engines": {
@@ -51,6 +51,11 @@
         "command": "extension.liveServer.stop",
         "title": "Stop Live Server",
         "category": "Live Server"
+      },
+      {
+        "command": "extension.liveServer.settings",
+        "title": "Open Settings",
+        "category": "Live Server"
       }
     ],
     "menus": {
@@ -73,6 +78,10 @@
         {
           "command": "extension.liveServer.stop",
           "title": "Live Server: Stop Live Server"
+        },
+        {
+          "command": "extension.liveServer.settings",
+          "title": "Live Server: Open Settings"
         }
       ]
     },
@@ -98,6 +107,11 @@
           "type": "boolean",
           "default": false,
           "description": "Automatically prompt to copy/move project to XAMPP htdocs folder when using Apache"
+        },
+        "liveServer.enableLanAccess": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable LAN access - Server will be accessible from other devices on the same network (binds to 0.0.0.0)"
         }
       }
     }
