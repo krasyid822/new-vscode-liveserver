@@ -4,6 +4,7 @@ import * as net from 'net';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import { ensureHttpsConfig } from './httpsonlan';
 
 let liveServerProcess: ChildProcess | undefined;
 let statusBarItem: vscode.StatusBarItem;
@@ -18,9 +19,16 @@ let copiedToHtdocs = false;
 let htdocsProjectPath = '';
 let enableLanAccess = false;
 let localIpAddress = '';
+let enableHttpsOnLan = false;
+let strictWorkspaceRoot = true;
+let workspaceRoot: string | undefined;
+let workspaceChangeDisposable: vscode.Disposable | undefined;
+let extensionContext: vscode.ExtensionContext | undefined;
 
 export function activate(context: vscode.ExtensionContext) {
     console.log('Live Server extension is now active!');
+    extensionContext = context;
+    workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 
     // Detect project type
     detectProjectType();
@@ -61,6 +69,16 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Detect project type (e.g., PHP)
     detectProjectType();
+    // Stop server if workspace folders change (strict mode)
+    workspaceChangeDisposable = vscode.workspace.onDidChangeWorkspaceFolders(() => {
+        if (strictWorkspaceRoot && isServerRunning) {
+            stopLiveServer({ silent: true });
+            vscode.window.showWarningMessage('Workspace folders changed. Live Server stopped to prevent serving other project content.');
+        }
+    });
+    if (workspaceChangeDisposable) {
+        context.subscriptions.push(workspaceChangeDisposable);
+    }
 }
 
 function getLocalIpAddress(): string {
@@ -99,14 +117,44 @@ function updateStatusBar() {
 }
 
 async function startLiveServer() {
-    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-    if (!workspaceFolder) {
+    const folders = vscode.workspace.workspaceFolders;
+    if (!folders || folders.length === 0) {
         vscode.window.showErrorMessage('No workspace folder found. Please open a folder first.');
         return;
     }
-
+    if (strictWorkspaceRoot && folders.length > 1) {
+        vscode.window.showErrorMessage('Multiple workspace folders detected. Disable strictWorkspaceRoot or close other folders.');
+        return;
+    }
+    const workspaceFolder = folders[0];
     const workspacePath = workspaceFolder.uri.fsPath;
+    if (strictWorkspaceRoot && workspaceRoot && workspaceRoot !== workspacePath) {
+        vscode.window.showErrorMessage('Workspace path changed since activation. Reload window or disable strictWorkspaceRoot.');
+        return;
+    }
+
+    // Always start clean: stop any existing server instances silently
+    if (isServerRunning || liveServerProcess) {
+        stopLiveServer({ silent: true });
+    }
     
+    let httpsConfigPath: string | undefined;
+    if (enableLanAccess && enableHttpsOnLan && !isPhpProject && !useXamppApache) {
+        if (!extensionContext) {
+            vscode.window.showErrorMessage('HTTPS configuration unavailable (extension context missing).');
+            return;
+        }
+        try {
+            httpsConfigPath = await ensureHttpsConfig(extensionContext);
+        } catch (error) {
+            console.error('Failed to prepare HTTPS config:', error);
+            vscode.window.showErrorMessage('Failed to prepare HTTPS certificate for LAN access. See console for details.');
+            return;
+        }
+    } else if (enableHttpsOnLan && !enableLanAccess) {
+        vscode.window.showWarningMessage('Enable LAN Access to serve over HTTPS on LAN.');
+    }
+
     // Get current active file to determine relative path from workspace
     const activeEditor = vscode.window.activeTextEditor;
     let relativePath = '';
@@ -118,6 +166,9 @@ async function startLiveServer() {
             if (!relativePath.startsWith('/')) {
                 relativePath = '/' + relativePath;
             }
+        }
+        else if (strictWorkspaceRoot) {
+            vscode.window.showWarningMessage('Active file outside workspace root. Deep link ignored.');
         }
     }
     
@@ -145,6 +196,7 @@ async function startLiveServer() {
     // Choose command based on project type and configuration
     let command: string = '';
     let shouldStartProcess = true;
+    let staticProtocol: 'http' | 'https' = 'http';
     
     if (useXamppApache) {
         // Check if Apache is running
@@ -195,7 +247,11 @@ async function startLiveServer() {
     } else {
         // Use live-server for static files
         const host = enableLanAccess ? '0.0.0.0' : '127.0.0.1';
-        command = `npx live-server --host=${host} --open=./`;
+        const httpsArgument = httpsConfigPath ? ` --https="${httpsConfigPath}"` : '';
+        if (httpsConfigPath) {
+            staticProtocol = 'https';
+        }
+        command = `npx live-server --host=${host}${httpsArgument} --open=./`;
     }
     
     const serverType = useXamppApache ? 'XAMPP Apache Server' : (useXampp && isPhpProject ? 'XAMPP PHP Server' : (isPhpProject ? 'PHP Server' : 'Live Server'));
@@ -227,7 +283,6 @@ async function startLiveServer() {
             setTimeout(() => {
                 // Always open in browser using localhost even if LAN mode enabled
                 const hostForBrowser = 'localhost';
-                const runtimeHost = enableLanAccess && localIpAddress ? '0.0.0.0' : 'localhost';
                 serverUrl = `http://${hostForBrowser}:8000`;
                 // Add relative path for PHP server
                 if (relativePath) {
@@ -241,15 +296,16 @@ async function startLiveServer() {
             }, 1500);
         } else {
             // Listen for output to get the server URL for live-server
+            const protocolForBrowser = staticProtocol;
             liveServerProcess.stdout?.on('data', (data: string) => {
                 console.log(`Live Server: ${data}`);
                 
                 // Extract URL and force localhost for browser even in LAN mode
-                const urlMatch = data.match(/http:\/\/([^:\s]+):(\d+)/);
+                const urlMatch = data.match(/https?:\/\/([^:\s]+):(\d+)/);
                 if (urlMatch) {
                     const port = urlMatch[2];
                     // Always use localhost for browser navigation
-                    serverUrl = `http://localhost:${port}`;
+                    serverUrl = `${protocolForBrowser}://localhost:${port}`;
                     isServerRunning = true;
                     updateStatusBar();
                     // Auto open browser (always localhost)
@@ -288,7 +344,8 @@ async function startLiveServer() {
     }
 }
 
-function stopLiveServer() {
+function stopLiveServer(options: { silent?: boolean } = {}) {
+    const silent = options.silent ?? false;
     const serverType = useXamppApache ? 'XAMPP Apache Server' : (useXampp && isPhpProject ? 'XAMPP PHP Server' : (isPhpProject ? 'PHP Server' : 'Live Server'));
 
     if (liveServerProcess) {
@@ -304,7 +361,7 @@ function stopLiveServer() {
         }
     }
 
-    if (useXamppApache && !liveServerProcess) {
+    if (useXamppApache && !liveServerProcess && !silent) {
         vscode.window.showInformationMessage('Apache continues running in XAMPP Control Panel. Please stop it manually if needed.');
     }
 
@@ -313,7 +370,9 @@ function stopLiveServer() {
     serverUrl = '';
     updateStatusBar();
 
-    vscode.window.showInformationMessage(`${serverType} stopped`);
+    if (!silent) {
+        vscode.window.showInformationMessage(`${serverType} stopped`);
+    }
 }
 
 function detectProjectType(): void {
@@ -332,6 +391,8 @@ function detectProjectType(): void {
     useXamppApache = config.get('useXamppApache', false);
     autoCopyToHtdocs = config.get('autoCopyToHtdocs', false);
     enableLanAccess = config.get('enableLanAccess', false);
+    enableHttpsOnLan = config.get('enableHttpsOnLan', false);
+    strictWorkspaceRoot = config.get('strictWorkspaceRoot', true);
     
     // Get local IP address if LAN access is enabled
     if (enableLanAccess) {
@@ -410,6 +471,6 @@ async function copyProjectToHtdocs(workspacePath: string): Promise<string | null
 }
 
 export function deactivate() {
-    stopLiveServer();
+    stopLiveServer({ silent: true });
     statusBarItem?.dispose();
 }

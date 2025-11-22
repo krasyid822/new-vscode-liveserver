@@ -22,22 +22,25 @@ Ekstensi VS Code yang menyediakan toggle "Go Live" di status bar untuk menjalank
 
 ## Configuration
 
-Ekstensi ini dapat dikonfigurasi melalui VS Code Settings:
+Semua opsi tersedia di **Settings > Extensions > Live Server**:
 
-### XAMPP Integration
+| Setting | Default | Deskripsi |
+| --- | --- | --- |
+| `liveServer.useXampp` | `false` | Gunakan PHP dari instalasi XAMPP (bukannya PHP sistem). |
+| `liveServer.xamppPath` | `C:\xampp` | Lokasi instalasi XAMPP untuk mencari `php.exe` dan Apache. |
+| `liveServer.useXamppApache` | `false` | Pakai Apache dari XAMPP (perlu Apache sedang berjalan atau akan dimulai otomatis). |
+| `liveServer.autoCopyToHtdocs` | `false` | Tawarkan copy project ke `htdocs` saat memakai Apache untuk memastikan path sesuai. |
+| `liveServer.enableLanAccess` | `false` | Bind server ke `0.0.0.0` sehingga bisa diakses dari perangkat lain di LAN. |
+| `liveServer.enableHttpsOnLan` | `false` | Gunakan HTTPS (sertifikat self-signed otomatis) untuk server static ketika LAN access aktif. Akan membuka `https://<ip>` dan mungkin perlu menandai trust di browser. |
+| `liveServer.strictWorkspaceRoot` | `true` | Membatasi root server ke single workspace aktif. Server akan berhenti jika daftar workspace berubah, dan menolak start saat multi-root masih terbuka. Cocok untuk mencegah konten folder lain ikut terbuka. |
 
-Jika Anda ingin menggunakan PHP atau Apache dari XAMPP:
+### Catatan XAMPP
 
-1. Buka VS Code Settings (Ctrl+,)
-2. Cari "Live Server"
-3. **Untuk PHP**: Set "Use Xampp" ke `true`
-4. **Untuk Apache**: Set "Use Xampp Apache" ke `true` (pastikan Apache running di XAMPP Control Panel)
-5. Set "Xampp Path" ke path instalasi XAMPP Anda (default: `C:\xampp`)
+Jika Anda ingin memakai PHP atau Apache dari XAMPP:
 
-Ketika "Use Xampp Apache" diaktifkan, ekstensi akan:
-- Memeriksa apakah Apache sedang berjalan
-- Jika tidak, menawarkan opsi untuk memulai Apache secara otomatis, membuka XAMPP Control Panel, atau membatalkan
-- Mencoba memulai Apache menggunakan Windows service jika memungkinkan
+1. Aktifkan `Use Xampp` atau `Use Xampp Apache` sesuai kebutuhan.
+2. Pastikan `Xampp Path` menunjuk ke folder instalasi (default sudah `C:\xampp`).
+3. Saat Apache dipilih, ekstensi akan memeriksa status Apache, menawarkan start otomatis/open control panel, dan dapat menyalin project ke `htdocs` bila opsi auto copy diaktifkan.
 
 ## Usage
 
