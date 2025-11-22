@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [1.0.2] - 2025-10-08
+## [1.0.30] - 2025-11-22
+
+### Changed
+- Auto-open browser now forced to use `localhost` even when LAN mode enabled for consistency.
+- Removed interactive "Open Browser" prompt; browser opens automatically on start (static & PHP).
+
+### Added
+- Internal logic to parse live-server port and reconstruct deterministic `http://localhost:<port>` URL.
+
+### Fixed
+- Potential confusion when LAN access enabled opening `0.0.0.0` or local IP directly.
+
 
 ### Added
 - PHP support: Automatic detection of PHP projects and use of PHP built-in server

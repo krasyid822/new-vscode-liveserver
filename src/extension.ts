@@ -225,45 +225,36 @@ async function startLiveServer() {
         if (isPhpProject) {
             // For PHP server, set URL immediately and wait a bit for server to start
             setTimeout(() => {
-                const host = enableLanAccess && localIpAddress ? localIpAddress : 'localhost';
-                serverUrl = `http://${host}:8000`;
+                // Always open in browser using localhost even if LAN mode enabled
+                const hostForBrowser = 'localhost';
+                const runtimeHost = enableLanAccess && localIpAddress ? '0.0.0.0' : 'localhost';
+                serverUrl = `http://${hostForBrowser}:8000`;
                 // Add relative path for PHP server
                 if (relativePath) {
                     serverUrl += relativePath;
                 }
                 isServerRunning = true;
                 updateStatusBar();
-                
-                vscode.window.showInformationMessage(
-                    `${serverType} started at ${serverUrl}`,
-                    'Open Browser'
-                ).then((selection: string | undefined) => {
-                    if (selection === 'Open Browser') {
-                        vscode.env.openExternal(vscode.Uri.parse(serverUrl));
-                    }
-                });
+                // Auto-open browser to localhost (not LAN IP) for consistency
+                vscode.env.openExternal(vscode.Uri.parse(serverUrl));
+                vscode.window.showInformationMessage(`${serverType} started at ${serverUrl}`);
             }, 1500);
         } else {
             // Listen for output to get the server URL for live-server
             liveServerProcess.stdout?.on('data', (data: string) => {
                 console.log(`Live Server: ${data}`);
                 
-                // Extract URL from live-server output
-                const urlMatch = data.match(/http:\/\/[^\s]+/);
+                // Extract URL and force localhost for browser even in LAN mode
+                const urlMatch = data.match(/http:\/\/([^:\s]+):(\d+)/);
                 if (urlMatch) {
-                    serverUrl = urlMatch[0];
+                    const port = urlMatch[2];
+                    // Always use localhost for browser navigation
+                    serverUrl = `http://localhost:${port}`;
                     isServerRunning = true;
                     updateStatusBar();
-                    
-                    // Show success message with option to open browser
-                    vscode.window.showInformationMessage(
-                        `Live Server started at ${serverUrl}`,
-                        'Open Browser'
-                    ).then((selection: string | undefined) => {
-                        if (selection === 'Open Browser') {
-                            vscode.env.openExternal(vscode.Uri.parse(serverUrl));
-                        }
-                    });
+                    // Auto open browser (always localhost)
+                    vscode.env.openExternal(vscode.Uri.parse(serverUrl));
+                    vscode.window.showInformationMessage(`Live Server started at ${serverUrl}`);
                 }
             });
         }
