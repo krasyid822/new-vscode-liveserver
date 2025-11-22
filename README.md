@@ -6,12 +6,13 @@ Ekstensi VS Code yang menyediakan toggle "Go Live" di status bar untuk menjalank
 
 - 🚀 **Toggle Button**: Tombol "Go Live" di status bar pojok kanan bawah
 - 🔄 **One-Click Start/Stop**: Klik sekali untuk start, klik lagi untuk stop
-- 🌐 **Auto Browser Open**: Otomatis membuka browser dengan alamat server
-- 📊 **Status Indicator**: Status bar menampilkan informasi server
-- ⚡ **Live Reload**: Menggunakan npx live-server untuk static files
-- 🐘 **PHP Support**: Otomatis mendeteksi dan menjalankan PHP built-in server untuk projects dengan file PHP
-- 🔍 **Auto Detection**: Mendeteksi tipe project (PHP atau static) secara otomatis
-- 🏠 **XAMPP Integration**: Dukungan untuk menggunakan PHP dari XAMPP
+- 🌐 **Auto Browser Open**: Otomatis membuka browser dengan alamat server (dipaksa ke `localhost` agar konsisten)
+- 📊 **Status Indicator**: Status bar menampilkan informasi server + URL LAN ketika diaktifkan
+- ⚡ **Live Reload**: Menggunakan `npx live-server` untuk proyek static, lengkap dengan live reload
+- 🔒 **HTTPS on LAN**: Opsi self-signed certificate otomatis ketika LAN access aktif (static project)
+- 🐘 **PHP Support**: Otomatis mendeteksi file `.php` dan menjalankan PHP built-in server / PHP dari XAMPP
+- 🏠 **XAMPP Integration**: Gunakan PHP atau Apache dari instalasi XAMPP + opsi copy ke `htdocs`
+- 🛡️ **Workspace Guard**: `strictWorkspaceRoot` memastikan server tidak memuat folder dari workspace lain
 
 ## Installation
 
@@ -45,8 +46,8 @@ Jika Anda ingin memakai PHP atau Apache dari XAMPP:
 ## Usage
 
 Ekstensi ini secara otomatis mendeteksi tipe project:
-- **PHP Projects**: Jika ada file `.php` di workspace, akan menggunakan PHP built-in server (`php -S localhost:8000`)
-- **Static Projects**: Jika tidak ada file PHP, akan menggunakan live-server dengan live reload
+- **PHP Projects**: Jika ada file `.php` di workspace, akan menggunakan PHP built-in server (`php -S localhost:8000`) atau PHP dari XAMPP jika disetel.
+- **Static Projects**: Jika tidak ada file PHP, akan menggunakan live-server dengan live reload (opsional HTTPS + LAN).
 
 ### Using Status Bar Toggle
 
@@ -77,6 +78,12 @@ Ekstensi ini secara otomatis mendeteksi tipe project:
 - Right-click on an HTML file in the Explorer
 - Select "Open with Live Server"
 
+### HTTPS on LAN
+
+1. Aktifkan `Enable Lan Access` dan `Enable Https On Lan` di Settings.
+2. Saat pertama kali dijalankan, extension akan membuat sertifikat self-signed dan menyimpannya di global storage VS Code.
+3. Browser akan membuka `https://localhost:<port>`; pada perangkat lain gunakan URL LAN di tooltip. Tandai sertifikat sebagai trusted di browser jika muncul peringatan.
+
 ## How It Works
 
 Ekstensi ini menggunakan `npx live-server --open=./` untuk:
@@ -84,10 +91,6 @@ Ekstensi ini menggunakan `npx live-server --open=./` untuk:
 2. Otomatis membuka browser ke alamat server
 3. Menyediakan live reload functionality
 4. Menampilkan status di VS Code status bar
-
-## Configuration
-
-Currently uses default live-server settings. Future versions will include customizable options.
 
 ## Commands
 
@@ -131,6 +134,7 @@ npm run compile
 
 - Pada Windows, proses live-server mungkin perlu dihentikan secara manual jika terjadi error
 - Status bar mungkin perlu refresh manual dalam beberapa kasus
+- Paket `live-server` membawa dependency lama (chokidar v1/v2). Gunakan hanya untuk kebutuhan development lokal dan nonaktifkan LAN jika tidak diperlukan.
 
 ## Changelog
 
