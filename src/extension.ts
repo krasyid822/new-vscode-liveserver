@@ -188,21 +188,49 @@ function updateStatusBar() {
     }
 }
 
-async function startLiveServer(targetResource?: vscode.Uri) {
+async function startLiveServer(targetResource?: vscode.Uri, rootOverride?: string) {
+    // Determine effective workspace path. If a root override is provided or a resource
+    // pointing to a folder/file is provided, use that as the server root. Otherwise
+    // fall back to the first workspace folder (existing behaviour).
+    let workspacePath: string | undefined;
     const folders = vscode.workspace.workspaceFolders;
-    if (!folders || folders.length === 0) {
-        vscode.window.showErrorMessage('No workspace folder found. Please open a folder first.');
-        return;
+
+    // If an explicit override path was passed, use it.
+    if (rootOverride) {
+        workspacePath = rootOverride;
     }
-    if (strictWorkspaceRoot && folders.length > 1) {
-        vscode.window.showErrorMessage('Multiple workspace folders detected. Disable strictWorkspaceRoot or close other folders.');
-        return;
+
+    // If invoked from explorer with a resource, prefer that folder (or the file's parent folder).
+    if (!workspacePath && targetResource && targetResource.fsPath) {
+        try {
+            const stats = fs.statSync(targetResource.fsPath);
+            if (stats.isDirectory()) {
+                workspacePath = targetResource.fsPath;
+            } else {
+                workspacePath = path.dirname(targetResource.fsPath);
+            }
+        } catch (err) {
+            // fallback to workspace folders
+            console.error('Error stat-ing target resource:', err);
+        }
     }
-    const workspaceFolder = folders[0];
-    const workspacePath = workspaceFolder.uri.fsPath;
-    if (strictWorkspaceRoot && workspaceRoot && workspaceRoot !== workspacePath) {
-        vscode.window.showErrorMessage('Workspace path changed since activation. Reload window or disable strictWorkspaceRoot.');
-        return;
+
+    // If still no workspacePath determined, fall back to opened workspace folder
+    if (!workspacePath) {
+        if (!folders || folders.length === 0) {
+            vscode.window.showErrorMessage('No workspace folder found. Please open a folder first.');
+            return;
+        }
+        if (strictWorkspaceRoot && folders.length > 1) {
+            vscode.window.showErrorMessage('Multiple workspace folders detected. Disable strictWorkspaceRoot or close other folders.');
+            return;
+        }
+        const workspaceFolder = folders[0];
+        workspacePath = workspaceFolder.uri.fsPath;
+        if (strictWorkspaceRoot && workspaceRoot && workspaceRoot !== workspacePath) {
+            vscode.window.showErrorMessage('Workspace path changed since activation. Reload window or disable strictWorkspaceRoot.');
+            return;
+        }
     }
 
     // Prepare relativePath early so we can use it when the server is already running
@@ -256,29 +284,46 @@ async function startLiveServer(targetResource?: vscode.Uri) {
     }
 
     // Determine relative path from either the provided resource (when invoked from explorer)
-    // or the active editor (when invoked from command palette/status bar)
-    relativePath = '';
-    if (targetResource && targetResource.fsPath) {
-        const activeFilePath = targetResource.fsPath;
-        if (activeFilePath.startsWith(workspacePath)) {
-            relativePath = activeFilePath.substring(workspacePath.length).replace(/\\/g, '/');
-            if (!relativePath.startsWith('/')) {
-                relativePath = '/' + relativePath;
-            }
-        } else if (strictWorkspaceRoot) {
-            vscode.window.showWarningMessage('Selected file is outside workspace root. Deep link ignored.');
+    // or the active editor (when invoked from command palette/status bar).
+    // If we used a resource or an explicit root override as the server root, do not compute
+    // a deep-link relative path (we treat the chosen folder as the server root).
+    let usedResourceAsRoot = false;
+    if (rootOverride) {
+        usedResourceAsRoot = true;
+    } else if (targetResource && targetResource.fsPath) {
+        try {
+            const s = fs.statSync(targetResource.fsPath);
+            // If a resource was provided, we used its folder as the server root
+            usedResourceAsRoot = true;
+        } catch (err) {
+            usedResourceAsRoot = false;
         }
-    } else {
-        const activeEditor = vscode.window.activeTextEditor;
-        if (activeEditor) {
-            const activeFilePath = activeEditor.document.uri.fsPath;
+    }
+
+    if (!usedResourceAsRoot) {
+        relativePath = '';
+        if (targetResource && targetResource.fsPath) {
+            const activeFilePath = targetResource.fsPath;
             if (activeFilePath.startsWith(workspacePath)) {
                 relativePath = activeFilePath.substring(workspacePath.length).replace(/\\/g, '/');
                 if (!relativePath.startsWith('/')) {
                     relativePath = '/' + relativePath;
                 }
             } else if (strictWorkspaceRoot) {
-                vscode.window.showWarningMessage('Active file outside workspace root. Deep link ignored.');
+                vscode.window.showWarningMessage('Selected file is outside workspace root. Deep link ignored.');
+            }
+        } else {
+            const activeEditor = vscode.window.activeTextEditor;
+            if (activeEditor) {
+                const activeFilePath = activeEditor.document.uri.fsPath;
+                if (activeFilePath.startsWith(workspacePath)) {
+                    relativePath = activeFilePath.substring(workspacePath.length).replace(/\\/g, '/');
+                    if (!relativePath.startsWith('/')) {
+                        relativePath = '/' + relativePath;
+                    }
+                } else if (strictWorkspaceRoot) {
+                    vscode.window.showWarningMessage('Active file outside workspace root. Deep link ignored.');
+                }
             }
         }
     }
@@ -631,20 +676,88 @@ export function deactivate() {
 
 async function updateLanTooltipAsync(lanUrl: string, allIfaces: Array<{ name: string; address: string }>) {
     if (!statusBarLanItem) return;
+    // Try primary qrcode module, then try vendor paths if require by name fails.
+    if (!statusBarLanItem) return;
     try {
-        // Dynamically require qrcode and generate data URL
+        console.log('updateLanTooltipAsync: attempting qrcode.toDataURL');
         // eslint-disable-next-line @typescript-eslint/no-var-requires
         // @ts-ignore
-        const qrcode = require('qrcode');
+        let qrcode: any;
+        try {
+            qrcode = require('qrcode');
+        } catch (e) {
+            // try vendor path relative to compiled `out` folder
+            try {
+                const alt = path.join(__dirname, '..', 'vendors', 'qrcode', 'lib', 'index.js');
+                // eslint-disable-next-line @typescript-eslint/no-var-requires
+                qrcode = require(alt);
+                console.log('updateLanTooltipAsync: loaded qrcode from', alt);
+            } catch (e2) {
+                throw e;
+            }
+        }
         const dataUrl = await qrcode.toDataURL(lanUrl);
+        console.log('updateLanTooltipAsync: qrcode.toDataURL succeeded');
 
-        // Build markdown tooltip with image and interface list
         const ifaceLines = allIfaces.map(i => `- ${i.name} — ${i.address}`).join('\n');
         const md = new vscode.MarkdownString(`![QR](${dataUrl})\n\n**LAN URL:** ${lanUrl}\n\n**Interfaces:**\n${ifaceLines}`);
         md.isTrusted = true;
         statusBarLanItem.tooltip = md;
+        return;
     } catch (err) {
-        console.error('Failed to build LAN tooltip QR:', err);
-        statusBarLanItem.tooltip = `LAN: ${allIfaces.map(i => i.address).join(', ')}`;
+        console.error('updateLanTooltipAsync: qrcode.toDataURL failed:', err);
+        // Try offline qrcode-generator, with vendor path fallback
+        try {
+            console.log('updateLanTooltipAsync: attempting offline qrcode-generator');
+            // eslint-disable-next-line @typescript-eslint/no-var-requires
+            let qrg: any;
+            try {
+                qrg = require('qrcode-generator');
+            } catch (e) {
+                // try vendor path relative to compiled `out` folder
+                const alt = path.join(__dirname, '..', 'vendors', 'qrcode-generator', 'qrcode.js');
+                // eslint-disable-next-line @typescript-eslint/no-var-requires
+                qrg = require(alt);
+                console.log('updateLanTooltipAsync: loaded qrcode-generator from', alt);
+            }
+
+            // qrcode-generator factory: (typeNumber, errorCorrectionLevel)
+            const qr = qrg(0, 'L');
+            qr.addData(lanUrl);
+            qr.make();
+            let svg: string = '';
+            if (typeof qr.createSvgTag === 'function') {
+                svg = qr.createSvgTag({ cellSize: 6, margin: 2 });
+            } else if (typeof qr.createImgTag === 'function') {
+                const imgTag = qr.createImgTag(6, 2);
+                svg = `<svg xmlns='http://www.w3.org/2000/svg'><foreignObject width='200' height='200'><body xmlns='http://www.w3.org/1999/xhtml'>${imgTag}</body></foreignObject></svg>`;
+            } else if (typeof (qr as any).qrcode === 'function' && typeof (qr as any).createSvgTag === 'function') {
+                svg = (qr as any).createSvgTag();
+            }
+
+            const dataUrl = 'data:image/svg+xml;base64,' + Buffer.from(svg).toString('base64');
+            const ifaceLines = allIfaces.map(i => `- ${i.name} — ${i.address}`).join('\n');
+            const md = new vscode.MarkdownString(`![QR](${dataUrl})\n\n**LAN URL:** ${lanUrl}\n\n**Interfaces:**\n${ifaceLines}`);
+            md.isTrusted = true;
+            statusBarLanItem.tooltip = md;
+            console.log('updateLanTooltipAsync: qrcode-generator succeeded');
+            return;
+        } catch (err2) {
+            console.error('updateLanTooltipAsync: qrcode-generator failed:', err2);
+        }
+
+        // Network fallback: Google Chart API
+        try {
+            console.log('updateLanTooltipAsync: attempting Google Chart API fallback');
+            const ifaceLines = allIfaces.map(i => `- ${i.name} — ${i.address}`).join('\n');
+            const chartUrl = `https://chart.googleapis.com/chart?cht=qr&chs=200x200&chl=${encodeURIComponent(lanUrl)}`;
+            const md = new vscode.MarkdownString(`![QR](${chartUrl})\n\n**LAN URL:** ${lanUrl}\n\n**Interfaces:**\n${ifaceLines}`);
+            md.isTrusted = true;
+            statusBarLanItem.tooltip = md;
+            console.log('updateLanTooltipAsync: Google Chart API fallback used');
+        } catch (err3) {
+            console.error('updateLanTooltipAsync: Google Chart API fallback failed:', err3);
+            statusBarLanItem.tooltip = `LAN: ${allIfaces.map(i => i.address).join(', ')}`;
+        }
     }
 }

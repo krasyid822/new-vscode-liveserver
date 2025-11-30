@@ -2,7 +2,7 @@
   "name": "live-server-extension",
   "displayName": "Live Server like Github Pages",
   "description": "Launch a development local Server with live reload feature for static & dynamic pages",
-  "version": "1.0.39",
+  "version": "1.0.44",
   "icon": "icon.png",
   "publisher": "rasyid-kurniawan",
   "engines": {
@@ -32,7 +32,8 @@
   "homepage": "https://github.com/krasyid822/new-vscode-liveserver#readme",
   "license": "MIT",
   "bundledDependencies": [
-    "qrcode"
+    "qrcode",
+    "qrcode-generator"
   ],
   "activationEvents": [
     "onStartupFinished"
@@ -47,7 +48,7 @@
       },
       {
         "command": "extension.liveServer.start",
-        "title": "Open with Live Server",
+        "title": "Open As Root (Live Server)",
         "category": "Live Server"
       },
       {
@@ -86,7 +87,7 @@
         },
         {
           "command": "extension.liveServer.start",
-          "title": "Live Server: Open with Live Server"
+          "title": "Live Server: Open As Root"
         },
         {
           "command": "extension.liveServer.stop",
@@ -161,6 +162,7 @@
   },
   "dependencies": {
     "qrcode": "^1.5.1",
+    "qrcode-generator": "^1.4.4",
     "selfsigned": "^2.4.1"
   }
 }
