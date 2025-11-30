@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { exec, ChildProcess } from 'child_process';
+import { exec, spawn, ChildProcess } from 'child_process';
 import * as net from 'net';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -8,6 +8,7 @@ import { ensureHttpsConfig } from './httpsonlan';
 
 let liveServerProcess: ChildProcess | undefined;
 let statusBarItem: vscode.StatusBarItem;
+let statusBarLanItem: vscode.StatusBarItem | undefined;
 let isServerRunning = false;
 let serverUrl = '';
 let isPhpProject = false;
@@ -39,6 +40,13 @@ export function activate(context: vscode.ExtensionContext) {
     updateStatusBar();
     statusBarItem.show();
 
+    // Create LAN status bar item (hidden by default). Clicking it will cycle interfaces.
+    statusBarLanItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 90);
+    statusBarLanItem.command = 'extension.liveServer.cycleLanInterface';
+    statusBarLanItem.tooltip = 'Cycle LAN interfaces';
+    statusBarLanItem.hide();
+    context.subscriptions.push(statusBarLanItem);
+
     // Register toggle command
     const toggleCommand = vscode.commands.registerCommand('extension.liveServer.toggle', () => {
         if (isServerRunning) {
@@ -49,9 +57,9 @@ export function activate(context: vscode.ExtensionContext) {
     });
 
     // Register explicit start and stop commands
-    const startCommand = vscode.commands.registerCommand('extension.liveServer.start', () => {
+    const startCommand = vscode.commands.registerCommand('extension.liveServer.start', (resource?: vscode.Uri) => {
         if (!isServerRunning) {
-            startLiveServer();
+            startLiveServer(resource);
         }
     });
 
@@ -66,6 +74,24 @@ export function activate(context: vscode.ExtensionContext) {
     });
 
     context.subscriptions.push(toggleCommand, startCommand, stopCommand, settingsCommand, statusBarItem);
+
+    // Register command to cycle LAN interfaces (clicking status bar cycles)
+    const cycleInterfacesCommand = vscode.commands.registerCommand('extension.liveServer.cycleLanInterface', async () => {
+        const ifaces = getAllLanInterfaces();
+        if (ifaces.length === 0) {
+            vscode.window.showInformationMessage('No LAN interfaces found.');
+            return;
+        }
+        // Find current index and move to next
+        let idx = ifaces.findIndex(i => i.address === localIpAddress);
+        idx = (idx + 1) % ifaces.length;
+        localIpAddress = ifaces[idx].address;
+        vscode.window.showInformationMessage(`Switched LAN interface to ${localIpAddress}`);
+        updateStatusBar();
+    });
+    context.subscriptions.push(cycleInterfacesCommand);
+
+    // Note: QR toggle removed — QR feature intentionally disabled per user request.
 
     // Detect project type (e.g., PHP)
     detectProjectType();
@@ -97,26 +123,72 @@ function getLocalIpAddress(): string {
     return 'localhost';
 }
 
+function getAllLanInterfaces(): Array<{ name: string; address: string }> {
+    const results: Array<{ name: string; address: string }> = [];
+    const interfaces = os.networkInterfaces();
+    for (const name of Object.keys(interfaces)) {
+        const iface = interfaces[name];
+        if (!iface) continue;
+        for (const alias of iface) {
+            const fam = String(alias.family);
+            if ((fam === 'IPv4' || fam === '4') && !alias.internal) {
+                results.push({ name, address: alias.address });
+            }
+        }
+    }
+    return results;
+}
+
 function updateStatusBar() {
     const serverType = useXamppApache ? 'XAMPP Apache Server' : (useXampp && isPhpProject ? 'XAMPP PHP Server' : (isPhpProject ? 'PHP Server' : 'Live Server'));
     if (isServerRunning) {
         statusBarItem.text = "$(broadcast) Go Live";
         let tooltipText = `${serverType} running at ${serverUrl}`;
-        if (enableLanAccess && localIpAddress && localIpAddress !== 'localhost') {
-            const lanUrl = serverUrl.replace('localhost', localIpAddress).replace('127.0.0.1', localIpAddress);
-            tooltipText += `\nLAN: ${lanUrl}`;
+        if (enableLanAccess) {
+            const allIfaces = getAllLanInterfaces();
+            if (allIfaces.length > 0) {
+                const addresses = allIfaces.map(i => i.address).join(', ');
+                // If serverUrl contains localhost, show an example LAN URL for the first address
+                let lanLine = '';
+                if (localIpAddress && serverUrl) {
+                    const lanUrl = serverUrl.replace('localhost', localIpAddress).replace('127.0.0.1', localIpAddress);
+                    lanLine = `\nLAN: ${lanUrl}`;
+                }
+                tooltipText += `${lanLine}\nInterfaces: ${addresses}`;
+            }
         }
         tooltipText += '. Click to stop.';
         statusBarItem.tooltip = tooltipText;
         statusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground');
+        // Show LAN status item when LAN access enabled
+        if (enableLanAccess) {
+            const allIfaces = getAllLanInterfaces();
+            if (allIfaces.length > 0) {
+                // Prefer the selected localIpAddress when available
+                const displayAddress = localIpAddress || allIfaces[0].address;
+                if (statusBarLanItem) {
+                    statusBarLanItem.text = `$(device-mobile) ${displayAddress}`;
+                    statusBarLanItem.tooltip = 'Generating QR...';
+                    statusBarLanItem.show();
+                    // update tooltip with QR image asynchronously
+                    const lanExampleUrl = serverUrl && serverUrl !== 'Starting...'
+                        ? serverUrl.replace('localhost', displayAddress).replace('127.0.0.1', displayAddress)
+                        : (isPhpProject ? `http://${displayAddress}:8000` : `http://${displayAddress}`);
+                    updateLanTooltipAsync(lanExampleUrl, allIfaces);
+                }
+            }
+        } else {
+            statusBarLanItem?.hide();
+        }
     } else {
         statusBarItem.text = "$(circle-large-outline) Go Live";
         statusBarItem.tooltip = `Click to start ${serverType}`;
         statusBarItem.backgroundColor = undefined;
+        statusBarLanItem?.hide();
     }
 }
 
-async function startLiveServer() {
+async function startLiveServer(targetResource?: vscode.Uri) {
     const folders = vscode.workspace.workspaceFolders;
     if (!folders || folders.length === 0) {
         vscode.window.showErrorMessage('No workspace folder found. Please open a folder first.');
@@ -133,9 +205,37 @@ async function startLiveServer() {
         return;
     }
 
-    // Always start clean: stop any existing server instances silently
-    if (isServerRunning || liveServerProcess) {
-        stopLiveServer({ silent: true });
+    // Prepare relativePath early so we can use it when the server is already running
+    let relativePath = '';
+
+    // If server is already running, open the requested file URL without restarting
+    if (isServerRunning) {
+        let openUrl = serverUrl && serverUrl !== 'Starting...' ? serverUrl : '';
+        if (!openUrl) {
+            if (useXamppApache) {
+                openUrl = 'http://localhost';
+            } else if (useXampp && isPhpProject) {
+                openUrl = 'http://localhost:8000';
+            } else if (isPhpProject) {
+                openUrl = 'http://localhost:8000';
+            } else {
+                openUrl = 'http://localhost:3000';
+            }
+        }
+        if (relativePath) {
+            if (openUrl.endsWith('/') && relativePath.startsWith('/')) {
+                openUrl = openUrl.slice(0, -1) + relativePath;
+            } else {
+                openUrl = openUrl + relativePath;
+            }
+        }
+        try {
+            vscode.env.openExternal(vscode.Uri.parse(openUrl));
+        } catch (err) {
+            console.error('Failed to open URL for running server:', err);
+            vscode.window.showErrorMessage('Failed to open file on running Live Server.');
+        }
+        return;
     }
     
     let httpsConfigPath: string | undefined;
@@ -155,20 +255,31 @@ async function startLiveServer() {
         vscode.window.showWarningMessage('Enable LAN Access to serve over HTTPS on LAN.');
     }
 
-    // Get current active file to determine relative path from workspace
-    const activeEditor = vscode.window.activeTextEditor;
-    let relativePath = '';
-    if (activeEditor) {
-        const activeFilePath = activeEditor.document.uri.fsPath;
+    // Determine relative path from either the provided resource (when invoked from explorer)
+    // or the active editor (when invoked from command palette/status bar)
+    relativePath = '';
+    if (targetResource && targetResource.fsPath) {
+        const activeFilePath = targetResource.fsPath;
         if (activeFilePath.startsWith(workspacePath)) {
             relativePath = activeFilePath.substring(workspacePath.length).replace(/\\/g, '/');
-            // Ensure path starts with /
             if (!relativePath.startsWith('/')) {
                 relativePath = '/' + relativePath;
             }
+        } else if (strictWorkspaceRoot) {
+            vscode.window.showWarningMessage('Selected file is outside workspace root. Deep link ignored.');
         }
-        else if (strictWorkspaceRoot) {
-            vscode.window.showWarningMessage('Active file outside workspace root. Deep link ignored.');
+    } else {
+        const activeEditor = vscode.window.activeTextEditor;
+        if (activeEditor) {
+            const activeFilePath = activeEditor.document.uri.fsPath;
+            if (activeFilePath.startsWith(workspacePath)) {
+                relativePath = activeFilePath.substring(workspacePath.length).replace(/\\/g, '/');
+                if (!relativePath.startsWith('/')) {
+                    relativePath = '/' + relativePath;
+                }
+            } else if (strictWorkspaceRoot) {
+                vscode.window.showWarningMessage('Active file outside workspace root. Deep link ignored.');
+            }
         }
     }
     
@@ -245,30 +356,72 @@ async function startLiveServer() {
         const host = enableLanAccess ? '0.0.0.0' : 'localhost';
         command = `php -S ${host}:8000 -t "${workspacePath}"`;
     } else {
-        // Use live-server for static files
-        const host = enableLanAccess ? '0.0.0.0' : '127.0.0.1';
-        const httpsArgument = httpsConfigPath ? ` --https="${httpsConfigPath}"` : '';
+        // Use browser-sync for static files (replaces live-server)
+        const hostBind = enableLanAccess ? '0.0.0.0' : '127.0.0.1';
+        const port = 3000;
+        let bsCommand = `npx browser-sync start --server "${workspacePath}" --host ${hostBind} --port ${port} --no-open --files "${workspacePath}"`;
         if (httpsConfigPath) {
-            staticProtocol = 'https';
+            // read https config file generated by ensureHttpsConfig
+            try {
+                const cfg = JSON.parse(fs.readFileSync(httpsConfigPath, 'utf8')) as { cert?: string; key?: string };
+                if (cfg.cert && cfg.key) {
+                    bsCommand += ` --https --https.key "${cfg.key}" --https.cert "${cfg.cert}"`;
+                    staticProtocol = 'https';
+                }
+            } catch (err) {
+                console.error('Failed to read HTTPS config for browser-sync:', err);
+            }
         }
-        command = `npx live-server --host=${host}${httpsArgument} --open=./`;
+        command = bsCommand;
     }
     
     const serverType = useXamppApache ? 'XAMPP Apache Server' : (useXampp && isPhpProject ? 'XAMPP PHP Server' : (isPhpProject ? 'PHP Server' : 'Live Server'));
     vscode.window.showInformationMessage(`Starting ${serverType}...`);
     
     if (shouldStartProcess) {
-        liveServerProcess = exec(command, {
-            cwd: workspacePath
-        }, (error, stdout, stderr) => {
-            if (error) {
-                console.error(`${serverType} error: ${error}`);
+        if (isPhpProject) {
+            // For PHP built-in server, use spawn to create a long-lived child process
+            // Build args: -S host:8000 -t workspacePath
+            const host = enableLanAccess ? '0.0.0.0' : 'localhost';
+            const phpArgs = ['-S', `${host}:8000`, '-t', workspacePath];
+            liveServerProcess = spawn('php', phpArgs, { cwd: workspacePath, shell: false });
+
+            // Attach listeners similar to exec handling
+            liveServerProcess.stderr?.on('data', (data: Buffer | string) => {
+                const text = data.toString();
+                console.error(`${serverType} stderr: ${text}`);
+            });
+            liveServerProcess.stdout?.on('data', (data: Buffer | string) => {
+                const text = data.toString();
+                console.log(`${serverType} stdout: ${text}`);
+            });
+            liveServerProcess.on('error', (error) => {
+                console.error(`${serverType} spawn error:`, error);
                 vscode.window.showErrorMessage(`Failed to start ${serverType}: ${error.message}`);
                 isServerRunning = false;
                 updateStatusBar();
-                return;
-            }
-        });
+                liveServerProcess = undefined;
+            });
+            liveServerProcess.on('close', (code) => {
+                console.log(`${serverType} process exited with code ${code}`);
+                isServerRunning = false;
+                serverUrl = '';
+                updateStatusBar();
+                liveServerProcess = undefined;
+            });
+        } else {
+            liveServerProcess = exec(command, {
+                cwd: workspacePath
+            }, (error, stdout, stderr) => {
+                if (error) {
+                    console.error(`${serverType} error: ${error}`);
+                    vscode.window.showErrorMessage(`Failed to start ${serverType}: ${error.message}`);
+                    isServerRunning = false;
+                    updateStatusBar();
+                    return;
+                }
+            });
+        }
     } else {
         // For Apache, just set as running and open browser
         isServerRunning = true;
@@ -295,24 +448,19 @@ async function startLiveServer() {
                 vscode.window.showInformationMessage(`${serverType} started at ${serverUrl}`);
             }, 1500);
         } else {
-            // Listen for output to get the server URL for live-server
+            // For browser-sync static server, we know the port we set (3000)
             const protocolForBrowser = staticProtocol;
-            liveServerProcess.stdout?.on('data', (data: string) => {
-                console.log(`Live Server: ${data}`);
-                
-                // Extract URL and force localhost for browser even in LAN mode
-                const urlMatch = data.match(/https?:\/\/([^:\s]+):(\d+)/);
-                if (urlMatch) {
-                    const port = urlMatch[2];
-                    // Always use localhost for browser navigation
-                    serverUrl = `${protocolForBrowser}://localhost:${port}`;
-                    isServerRunning = true;
-                    updateStatusBar();
-                    // Auto open browser (always localhost)
-                    vscode.env.openExternal(vscode.Uri.parse(serverUrl));
-                    vscode.window.showInformationMessage(`Live Server started at ${serverUrl}`);
+            setTimeout(() => {
+                serverUrl = `${protocolForBrowser}://localhost:3000`;
+                // If relativePath present, append
+                if (relativePath) {
+                    serverUrl += relativePath;
                 }
-            });
+                isServerRunning = true;
+                updateStatusBar();
+                vscode.env.openExternal(vscode.Uri.parse(serverUrl));
+                vscode.window.showInformationMessage(`${serverType} started at ${serverUrl}`);
+            }, 800);
         }
 
         liveServerProcess.stderr?.on('data', (data: string) => {
@@ -396,7 +544,12 @@ function detectProjectType(): void {
     
     // Get local IP address if LAN access is enabled
     if (enableLanAccess) {
-        localIpAddress = getLocalIpAddress();
+        const allIfaces = getAllLanInterfaces();
+        if (allIfaces.length > 0) {
+            localIpAddress = allIfaces[0].address;
+        } else {
+            localIpAddress = getLocalIpAddress();
+        }
         console.log('Local IP Address:', localIpAddress);
     }
 }
@@ -473,4 +626,25 @@ async function copyProjectToHtdocs(workspacePath: string): Promise<string | null
 export function deactivate() {
     stopLiveServer({ silent: true });
     statusBarItem?.dispose();
+    statusBarLanItem?.dispose();
+}
+
+async function updateLanTooltipAsync(lanUrl: string, allIfaces: Array<{ name: string; address: string }>) {
+    if (!statusBarLanItem) return;
+    try {
+        // Dynamically require qrcode and generate data URL
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        // @ts-ignore
+        const qrcode = require('qrcode');
+        const dataUrl = await qrcode.toDataURL(lanUrl);
+
+        // Build markdown tooltip with image and interface list
+        const ifaceLines = allIfaces.map(i => `- ${i.name} — ${i.address}`).join('\n');
+        const md = new vscode.MarkdownString(`![QR](${dataUrl})\n\n**LAN URL:** ${lanUrl}\n\n**Interfaces:**\n${ifaceLines}`);
+        md.isTrusted = true;
+        statusBarLanItem.tooltip = md;
+    } catch (err) {
+        console.error('Failed to build LAN tooltip QR:', err);
+        statusBarLanItem.tooltip = `LAN: ${allIfaces.map(i => i.address).join(', ')}`;
+    }
 }

@@ -2,3 +2,5 @@ npm run compile
 vsce package
 
 vsce publish (berbayar)
+
+code --extensionDevelopmentPath="d:\Downloads\Compressed\VSCodeProject\new-vscode-liveserver"

@@ -2,7 +2,7 @@
   "name": "live-server-extension",
   "displayName": "Live Server like Github Pages",
   "description": "Launch a development local Server with live reload feature for static & dynamic pages",
-  "version": "1.0.34",
+  "version": "1.0.39",
   "icon": "icon.png",
   "publisher": "rasyid-kurniawan",
   "engines": {
@@ -31,6 +31,9 @@
   },
   "homepage": "https://github.com/krasyid822/new-vscode-liveserver#readme",
   "license": "MIT",
+  "bundledDependencies": [
+    "qrcode"
+  ],
   "activationEvents": [
     "onStartupFinished"
   ],
@@ -56,13 +59,23 @@
         "command": "extension.liveServer.settings",
         "title": "Open Settings",
         "category": "Live Server"
+      },
+      {
+        "command": "extension.liveServer.showLanInterfaces",
+        "title": "Show LAN Interfaces",
+        "category": "Live Server"
+      },
+      {
+        "command": "extension.liveServer.showLanQr",
+        "title": "Show LAN QR Code",
+        "category": "Live Server"
       }
     ],
     "menus": {
       "explorer/context": [
         {
           "command": "extension.liveServer.start",
-          "when": "resourceExtname == .html",
+          "when": "resourceScheme == file",
           "group": "navigation"
         }
       ],
@@ -82,6 +95,14 @@
         {
           "command": "extension.liveServer.settings",
           "title": "Live Server: Open Settings"
+        },
+        {
+          "command": "extension.liveServer.showLanInterfaces",
+          "title": "Live Server: Show LAN Interfaces"
+        },
+        {
+          "command": "extension.liveServer.showLanQr",
+          "title": "Live Server: Show LAN QR Code"
         }
       ]
     },
@@ -110,7 +131,7 @@
         },
         "liveServer.enableLanAccess": {
           "type": "boolean",
-          "default": false,
+          "default": true,
           "description": "Enable LAN access - Server will be accessible from other devices on the same network (binds to 0.0.0.0)"
         },
         "liveServer.enableHttpsOnLan": {
@@ -134,11 +155,12 @@
   "devDependencies": {
     "@types/node": "16.x",
     "@types/vscode": "^1.74.0",
-    "live-server": "^1.2.2",
-    "typescript": "^4.9.4",
-    "@vscode/vsce": "^3.0.0"
+    "@vscode/vsce": "^3.0.0",
+    "browser-sync": "^3.0.4",
+    "typescript": "^4.9.4"
   },
   "dependencies": {
+    "qrcode": "^1.5.1",
     "selfsigned": "^2.4.1"
   }
 }
