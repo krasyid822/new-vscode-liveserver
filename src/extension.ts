@@ -19,7 +19,7 @@ let useXamppApache = false;
 let autoCopyToHtdocs = false;
 let copiedToHtdocs = false;
 let htdocsProjectPath = '';
-let enableLanAccess = false;
+let enableLanAccess = true;
 let localIpAddress = '';
 let enableHttpsOnLan = false;
 let strictWorkspaceRoot = true;
@@ -617,7 +617,7 @@ function detectProjectType(): void {
     xamppPath = config.get('xamppPath', 'C:\\xampp');
     useXamppApache = config.get('useXamppApache', false);
     autoCopyToHtdocs = config.get('autoCopyToHtdocs', false);
-    enableLanAccess = config.get('enableLanAccess', false);
+    enableLanAccess = config.get('enableLanAccess', true);
     enableHttpsOnLan = config.get('enableHttpsOnLan', false);
     strictWorkspaceRoot = config.get('strictWorkspaceRoot', true);
     

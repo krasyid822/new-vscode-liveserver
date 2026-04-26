@@ -31,7 +31,7 @@ Semua opsi tersedia di **Settings > Extensions > Live Server**:
 | `liveServer.xamppPath` | `C:\xampp` | Lokasi instalasi XAMPP untuk mencari `php.exe` dan Apache. |
 | `liveServer.useXamppApache` | `false` | Pakai Apache dari XAMPP (perlu Apache sedang berjalan atau akan dimulai otomatis). |
 | `liveServer.autoCopyToHtdocs` | `false` | Tawarkan copy project ke `htdocs` saat memakai Apache untuk memastikan path sesuai. |
-| `liveServer.enableLanAccess` | `false` | Bind server ke `0.0.0.0` sehingga bisa diakses dari perangkat lain di LAN. |
+| `liveServer.enableLanAccess` | `true` | Bind server ke `0.0.0.0` sehingga bisa diakses dari perangkat lain di LAN. |
 | `liveServer.enableHttpsOnLan` | `false` | Gunakan HTTPS (sertifikat self-signed otomatis) untuk server static ketika LAN access aktif. Akan membuka `https://<ip>` dan mungkin perlu menandai trust di browser. |
 | `liveServer.strictWorkspaceRoot` | `true` | Membatasi root server ke single workspace aktif. Server akan berhenti jika daftar workspace berubah, dan menolak start saat multi-root masih terbuka. Cocok untuk mencegah konten folder lain ikut terbuka. |
 
