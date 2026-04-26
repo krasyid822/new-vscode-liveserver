@@ -1,0 +1,35 @@
+{
+  "src\\extension.ts": {
+    "purpose": "unknown",
+    "exports": [
+      "activate",
+      "deactivate"
+    ],
+    "imports": [
+      "vscode",
+      "child_process",
+      "net",
+      "fs",
+      "path",
+      "os"
+    ]
+  },
+  "src\\httpsonlan.ts": {
+    "purpose": "unknown",
+    "exports": [
+      "ensureHttpsConfig"
+    ],
+    "imports": [
+      "vscode",
+      "fs",
+      "path",
+      "os",
+      "selfsigned"
+    ]
+  },
+  "src\\types\\selfsigned.d.ts": {
+    "purpose": "types",
+    "exports": [],
+    "imports": []
+  }
+}
